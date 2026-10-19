@@ -25,3 +25,9 @@ Legend: [~] written, syntax-linted, NOT executed; [ ] not started. Nothing is ma
 - `.github/workflows/build-apk.yml` generates the Flutter project, builds a DEBUG APK and uploads it as an artifact. Not yet run.
 - `flutter_local_notifications` removed from bootstrap until notifications are implemented (it needs Gradle core-library desugaring).
 - Release APK needs a keystore stored as GitHub secrets; not configured.
+
+## Update: app screens + backend packaging (still unverified)
+- Mobile: login, bottom navigation, Home dashboard (counts computed from fetched tasks/events), Calendar agenda view, Tasks list/filter/detail/create/status changes, More (profile, sign out). Meetings, announcements, notifications, reports, settings are placeholders.
+- Mobile limitation: screens read live from the server; the SQLite outbox exists but is NOT wired into screens, so there is no offline editing yet.
+- Backend CI (`build-backend.yml`) builds `dole-backend.zip` + `database.sql` for cPanel hosting; see docs/DEPLOY-CPANEL.md.
+- Backend still lacks a user/office admin API, so accounts are created via docs/first-admin.sql.

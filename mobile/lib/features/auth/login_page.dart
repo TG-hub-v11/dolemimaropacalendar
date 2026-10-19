@@ -1,6 +1,5 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
-import "package:go_router/go_router.dart";
 import "../../data/providers.dart";
 
 String? validateEmail(String? v) =>
@@ -22,15 +21,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _submit() async {
     if (!_form.currentState!.validate()) return;
-    setState(() { _busy = true; _error = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
-      await ref.read(apiClientProvider).login(_email.text.trim(), _password.text, "mobile");
-      if (mounted) context.go("/home");
+      await ref.read(sessionProvider.notifier).signIn(_email.text.trim(), _password.text);
     } catch (_) {
-      setState(() => _error = "Sign-in failed. Check your credentials and connection.");
+      if (mounted) setState(() => _error = "Sign-in failed. Check your credentials and connection.");
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
   }
 
   @override
@@ -42,12 +50,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             child: Form(
               key: _form,
               child: ListView(padding: const EdgeInsets.all(24), shrinkWrap: true, children: [
-                TextFormField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: "Email"), validator: validateEmail, autofillHints: const [AutofillHints.username]),
+                TextFormField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: "Email"),
+                    validator: validateEmail,
+                    autofillHints: const [AutofillHints.username]),
                 const SizedBox(height: 16),
-                TextFormField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: "Password"), validator: validatePassword, autofillHints: const [AutofillHints.password]),
-                if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+                TextFormField(
+                    controller: _password,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: "Password"),
+                    validator: validatePassword,
+                    autofillHints: const [AutofillHints.password]),
+                if (_error != null)
+                  Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
                 const SizedBox(height: 24),
-                FilledButton(onPressed: _busy ? null : _submit, child: _busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text("Sign in")),
+                FilledButton(
+                    onPressed: _busy ? null : _submit,
+                    child: _busy
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text("Sign in")),
               ]),
             ),
           ),
