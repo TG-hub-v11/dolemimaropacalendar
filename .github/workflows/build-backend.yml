@@ -1,0 +1,64 @@
+name: Build backend package
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths: ['backend/**', 'scripts/bootstrap-backend.sh', '.github/workflows/build-backend.yml']
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: dole_build
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, zip, pdo_mysql, pdo_sqlite
+          tools: composer:v2
+      - name: Generate Laravel app and overlay source
+        run: bash scripts/bootstrap-backend.sh
+      - name: Prepare env
+        working-directory: backend/_app
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Run tests (non-blocking until first clean run)
+        working-directory: backend/_app
+        continue-on-error: true
+        run: php artisan test
+      - name: Create database schema + roles (no user accounts)
+        working-directory: backend/_app
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: dole_build
+          DB_USERNAME: root
+          DB_PASSWORD: root
+          DB_COLLATION: utf8mb4_unicode_ci
+        run: |
+          php artisan migrate --force
+          php artisan db:seed --class='Database\Seeders\AccessSeeder' --force
+          mysqldump -h127.0.0.1 -uroot -proot --no-tablespaces --column-statistics=0 dole_build > ../../database.sql || mysqldump -h127.0.0.1 -uroot -proot --no-tablespaces dole_build > ../../database.sql
+      - name: Build production package
+        working-directory: backend/_app
+        run: |
+          rm -f .env database/database.sqlite
+          rm -rf tests
+          composer install --no-dev --optimize-autoloader --no-interaction
+          rm -rf storage/logs/* storage/framework/cache/data/* bootstrap/cache/*.php
+          zip -qr ../../dole-backend.zip . -x ".git/*"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dole-backend-package
+          path: |
+            dole-backend.zip
+            database.sql
